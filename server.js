@@ -1,84 +1,29 @@
-//
-// # SimpleServer
-//
-// A simple chat server using Socket.IO, Express, and Async.
-//
+/*
+  User Story: I can submit a FormData object that includes a file upload.
+  User Story: When I submit something, I will receive the file size in bytes within the JSON response
+  Hint: You may want to use this package: https://www.npmjs.com/package/multer
+*/
 var http = require('http');
 var path = require('path');
-
-var async = require('async');
-var socketio = require('socket.io');
 var express = require('express');
 
-//
-// ## SimpleServer `SimpleServer(obj)`
-//
-// Creates a new instance of SimpleServer with the following options:
-//  * `port` - The HTTP port to listen on. If `process.env.PORT` is set, _it overrides this value_.
-//
-var router = express();
-var server = http.createServer(router);
-var io = socketio.listen(server);
+var multer = require("multer");
+var upload = multer({dest: "uploads/"});
 
-router.use(express.static(path.resolve(__dirname, 'client')));
-var messages = [];
-var sockets = [];
+var app = express();
+var server = http.createServer(app);
 
-io.on('connection', function (socket) {
-    messages.forEach(function (data) {
-      socket.emit('message', data);
-    });
+app.use(express.static(path.resolve(__dirname, 'client')));
 
-    sockets.push(socket);
-
-    socket.on('disconnect', function () {
-      sockets.splice(sockets.indexOf(socket), 1);
-      updateRoster();
-    });
-
-    socket.on('message', function (msg) {
-      var text = String(msg || '');
-
-      if (!text)
-        return;
-
-      socket.get('name', function (err, name) {
-        var data = {
-          name: name,
-          text: text
-        };
-
-        broadcast('message', data);
-        messages.push(data);
-      });
-    });
-
-    socket.on('identify', function (name) {
-      socket.set('name', String(name || 'Anonymous'), function (err) {
-        updateRoster();
-      });
-    });
+app.post('/uploads', upload.single("file"), function (req, res) {
+  console.log(req.file);
+  res.send({
+    Name: req.file.originalname,
+    Size: req.file.size,
   });
-
-function updateRoster() {
-  async.map(
-    sockets,
-    function (socket, callback) {
-      socket.get('name', callback);
-    },
-    function (err, names) {
-      broadcast('roster', names);
-    }
-  );
-}
-
-function broadcast(event, data) {
-  sockets.forEach(function (socket) {
-    socket.emit(event, data);
-  });
-}
+});
 
 server.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0", function(){
   var addr = server.address();
-  console.log("Chat server listening at", addr.address + ":" + addr.port);
+  console.log("App listening at", addr.address + ":" + addr.port);
 });
